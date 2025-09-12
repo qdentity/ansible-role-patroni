@@ -35,7 +35,7 @@ bootstrap:
   {% if patroni_bootstrap_pg_hba |d([], true) |length > 0 %}
   pg_hba:
     {% for client in patroni_bootstrap_pg_hba %}
-    - {{ client.type }} {{ client.database }} {{ client.user }} {{ client.address |d(None) }} {{ client.method }} {{ client.options |d(None) }}
+    - {{ client.type }} {{ client.database }} {{ client.user }}{% if client.address is defined %} {{ client.address }}{% endif %} {{ client.method }}{% if client.options is defined %} {{ client.options }}{% endif %}
     {% endfor %}
   {% endif %}
   {% if patroni_bootstrap_users |d([], true) |length > 0 %}
