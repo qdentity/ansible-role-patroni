@@ -153,21 +153,18 @@
       changed_when: true
       ansible.builtin.set_fact:
         _play_nodes_reordered: "{{ _patroni_config_shmem_param_decrease
-          | ternary([_patroni_primary]
-            + (patroni_inventory_hosts_pending_restart | difference([_patroni_primary])),
-            (patroni_inventory_hosts_pending_restart | difference([_patroni_primary])) + [_patroni_primary])
+          | ternary(
+              ([_patroni_primary] | intersect(patroni_inventory_hosts_pending_restart))
+              + (patroni_inventory_hosts_pending_restart | difference([_patroni_primary])),
+              (patroni_inventory_hosts_pending_restart | difference([_patroni_primary]))
+              + ([_patroni_primary] | intersect(patroni_inventory_hosts_pending_restart))
+            )
           }}"
 
     - name: Reboot standbys first then the primary (API)
-      delegate_to: "{{ item }}"
-      changed_when: true
-      ansible.builtin.uri:
-        url: "http://{{ _patroni_restapi_hostwport }}/restart"
-        method: POST
-        body:
-          restart_pending: true
-        body_format: json
-      register: _patroni_reg
+      ansible.builtin.include_tasks: restart_node.yml
+      vars:
+        restart_target: "{{ item }}"
       loop: "{{ _play_nodes_reordered }}"
       loop_control:
         pause: "{{ _patroni_reboot_loop_pause }}"

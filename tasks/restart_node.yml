@@ -1,0 +1,18 @@
+---
+# This task file is called from handle_config_changes.yml with a loop
+# to work around the Ansible 2.5+ issue where delegate_to doesn't work with loops
+
+- name: Restart node via Patroni API
+  changed_when: _patroni_reg.status == 200
+  ansible.builtin.uri:
+    url: "http://{{ _patroni_restapi_hostwport }}/restart"
+    method: POST
+    body:
+      restart_pending: true
+    body_format: json
+  delegate_to: "{{ restart_target }}"
+  register: _patroni_reg
+  retries: 5
+  delay: 10
+  until: _patroni_reg.status in [200, 503]
+  failed_when: _patroni_reg.status not in [200, 503]
