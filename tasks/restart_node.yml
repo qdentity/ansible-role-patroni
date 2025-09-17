@@ -1,0 +1,40 @@
+---
+# This task file is called from handle_config_changes.yml with a loop
+# to work around the Ansible 2.5+ issue where delegate_to doesn't work with loops
+
+# Note: restart_target comes from the loop in handle_config_changes.yml
+# These nodes were already determined to need restart in handle_config_changes.yml
+
+- name: Display that we're restarting {{ restart_target }}
+  ansible.builtin.debug:
+    msg: "Restarting node {{ restart_target }} (was in pending restart list)"
+
+# Restart node via Patroni API - Force restart regardless of current state
+# Use --force equivalent by not checking restart_pending condition
+- name: Restart node via Patroni API
+  ansible.builtin.uri:
+    url: "http://{{ _patroni_restapi_hostwport }}/restart"
+    method: POST
+    body: {}  # Empty body forces restart
+    body_format: json
+  delegate_to: "{{ restart_target }}"
+  register: _patroni_reg
+  retries: 5
+  delay: 10
+  until: _patroni_reg.status in [200, 202]
+  failed_when: _patroni_reg.status not in [200, 202]
+  changed_when: _patroni_reg.status in [200, 202]
+
+# Wait for the restart to complete
+- name: Wait for node to complete restart
+  ansible.builtin.uri:
+    url: "http://{{ _patroni_restapi_hostwport }}/patroni"
+    method: GET
+  delegate_to: "{{ restart_target }}"
+  register: _patroni_restart_check
+  until:
+    - _patroni_restart_check.status == 200
+    - not (_patroni_restart_check.json.pending_restart | default(false))
+  retries: 60
+  delay: 5
+  when: _patroni_reg is changed
