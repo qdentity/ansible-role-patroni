@@ -143,8 +143,6 @@
   when:
     - patroni_config_change_allow_restart | d(false)
     - patroni_inventory_hosts_pending_restart | length > 0
-      or _patroni_config_shmem_param_increase
-      or _patroni_config_shmem_param_decrease
   run_once: true
   block:
     # Always reporting this changed as when in dry-run the actual reboot task
